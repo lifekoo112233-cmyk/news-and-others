@@ -301,13 +301,31 @@ body {
 <div id="page-news" class="page active">
   <div class="page-header">
     <div class="page-title">뉴스</div>
-    <button class="refresh-btn" onclick="loadNews()" title="새로고침">
+    <button class="refresh-btn" onclick="loadNews(true)" title="새로고침">
       <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
     </button>
   </div>
+  <div class="card" id="newsapi-card">
+    <div class="card-header">
+      <span class="card-title">🔴 실시간 뉴스 연동</span>
+      <button class="tab" onclick="toggleApiCard()" id="api-toggle-btn">설정 ▾</button>
+    </div>
+    <div id="api-setting" style="display:none;padding:12px 14px;border-top:1px solid var(--border)">
+      <p style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.8">
+        1. <a href="https://newsapi.org/register" target="_blank" style="color:var(--accent)">newsapi.org</a> 무료 가입 (1분)<br>
+        2. 발급받은 API Key 아래에 입력<br>
+        3. 저장하면 실시간 뉴스로 자동 전환돼요
+      </p>
+      <div style="display:flex;gap:7px">
+        <input type="text" id="newsapi-key-input" placeholder="API Key 붙여넣기..." style="flex:1;font-size:12px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);outline:none;font-family:inherit" />
+        <button onclick="saveApiKey()" style="font-size:12px;padding:8px 13px;border-radius:8px;border:1px solid var(--accent);background:var(--accent2);color:#fff;cursor:pointer;font-family:inherit;font-weight:500">저장</button>
+      </div>
+      <div id="api-status-msg" style="font-size:11px;margin-top:6px;color:var(--text3)"></div>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">
-      <span class="card-title">오늘의 뉴스</span>
+      <span class="card-title" id="news-source-label">네이버 RSS</span>
       <div class="tabs" id="news-tabs">
         <button class="tab active" onclick="filterNews('경제',this)">경제</button>
         <button class="tab" onclick="filterNews('기술',this)">기술</button>
@@ -423,11 +441,19 @@ function showPage(id, btn) {
 }
 
 // ─── NEWS ────────────────────────────────────────────────
-const NEWS_FEEDS = {
-  '경제': 'https://news.google.com/rss/search?q=한국+경제+금리+주식&hl=ko&gl=KR&ceid=KR:ko',
-  '기술': 'https://news.google.com/rss/search?q=AI+반도체+기술+삼성+네이버&hl=ko&gl=KR&ceid=KR:ko',
-  '증시': 'https://news.google.com/rss/search?q=코스피+코스닥+주가+증시&hl=ko&gl=KR&ceid=KR:ko',
-  '코인': 'https://news.google.com/rss/search?q=비트코인+이더리움+가상화폐+코인&hl=ko&gl=KR&ceid=KR:ko',
+// 네이버 RSS 피드 (5~10분 주기, 기본)
+const NAVER_FEEDS = {
+  '경제': 'https://rss.etnews.com/Section901.xml',
+  '기술': 'https://rss.etnews.com/Section902.xml',
+  '증시': 'https://www.hankyung.com/feed/economy',
+  '코인': 'https://rss.etnews.com/Section905.xml',
+};
+// NewsAPI 키워드
+const NEWSAPI_QUERY = {
+  '경제': '한국경제 금리 주식',
+  '기술': 'AI 반도체 삼성 기술',
+  '증시': '코스피 코스닥 주가',
+  '코인': '비트코인 이더리움 코인',
 };
 const PROXIES = [
   url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -436,6 +462,28 @@ const PROXIES = [
 ];
 let currentNewsCat = '경제';
 let newsCache = {};
+let newsApiKey = localStorage.getItem('newsapi_key') || '';
+
+function toggleApiCard() {
+  const s = document.getElementById('api-setting');
+  const btn = document.getElementById('api-toggle-btn');
+  const open = s.style.display === 'none';
+  s.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '닫기 ▴' : '설정 ▾';
+  if (open && newsApiKey) document.getElementById('newsapi-key-input').value = newsApiKey;
+}
+
+function saveApiKey() {
+  const key = document.getElementById('newsapi-key-input').value.trim();
+  const msg = document.getElementById('api-status-msg');
+  if (!key) { msg.textContent = '키를 입력해주세요.'; return; }
+  newsApiKey = key;
+  localStorage.setItem('newsapi_key', key);
+  msg.style.color = 'var(--green)';
+  msg.textContent = '✓ 저장됐어요! 실시간 뉴스로 전환합니다.';
+  newsCache = {};
+  setTimeout(() => { toggleApiCard(); loadNews(true); }, 800);
+}
 
 function filterNews(cat, btn) {
   currentNewsCat = cat;
@@ -444,7 +492,7 @@ function filterNews(cat, btn) {
   if (newsCache[cat]) {
     renderNewsList(newsCache[cat]);
   } else {
-    loadNews();
+    loadNews(false);
   }
 }
 
@@ -452,43 +500,87 @@ async function fetchWithFallback(targetUrl) {
   for (let i = 0; i < PROXIES.length; i++) {
     try {
       const proxyUrl = PROXIES[i](targetUrl);
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(7000) });
       if (!res.ok) continue;
       const text = await res.text();
-      let xmlText = text;
-      try {
-        const json = JSON.parse(text);
-        if (json.contents) xmlText = json.contents;
-      } catch(e) {}
-      return xmlText;
+      let result = text;
+      try { const j = JSON.parse(text); if (j.contents) result = j.contents; } catch(e) {}
+      return result;
     } catch(e) { continue; }
   }
-  throw new Error('모든 프록시 실패');
+  throw new Error('프록시 실패');
 }
 
-async function loadNews() {
-  const statusEl = document.getElementById('news-status');
-  statusEl.innerHTML = '<span class="status-dot loading"></span>뉴스 불러오는 중...';
-  document.getElementById('news-list').innerHTML = `<div style="padding:14px 15px">${['','',''].map(() => `<div class="skeleton" style="width:60%;height:10px;margin-bottom:4px"></div><div class="skeleton" style="height:13px;margin-bottom:3px"></div><div class="skeleton" style="height:13px;width:80%"></div><br>`).join('')}</div>`;
+// NewsAPI 실시간 호출
+async function loadFromNewsAPI() {
+  const q = encodeURIComponent(NEWSAPI_QUERY[currentNewsCat]);
+  const url = `https://newsapi.org/v2/everything?q=${q}&language=ko&sortBy=publishedAt&pageSize=10&apiKey=${newsApiKey}`;
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+  const data = await res.json();
+  if (data.status !== 'ok' || !data.articles?.length) throw new Error('NewsAPI 실패');
+  return data.articles.map(a => ({
+    title: a.title?.replace(/ - .*$/, '') || '',
+    link: a.url || '',
+    pub: a.publishedAt || '',
+    src: a.source?.name || 'NewsAPI',
+  }));
+}
 
-  const url = NEWS_FEEDS[currentNewsCat];
+// 네이버/ET뉴스 RSS
+async function loadFromRSS() {
+  const url = NAVER_FEEDS[currentNewsCat];
+  const xmlText = await fetchWithFallback(url);
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlText, 'text/xml');
+  const items = [...xml.querySelectorAll('item')].slice(0, 10);
+  if (!items.length) throw new Error('RSS 항목 없음');
+  return items.map(item => ({
+    title: item.querySelector('title')?.textContent?.replace(/<!\[CDATA\[|\]\]>/g,'').trim() || '',
+    link: item.querySelector('link')?.textContent || item.querySelector('guid')?.textContent || '',
+    pub: item.querySelector('pubDate')?.textContent || '',
+    src: item.querySelector('source')?.textContent || '뉴스',
+  }));
+}
+
+async function loadNews(forceRefresh = false) {
+  if (!forceRefresh && newsCache[currentNewsCat]) {
+    renderNewsList(newsCache[currentNewsCat]);
+    return;
+  }
+  const statusEl = document.getElementById('news-status');
+  const labelEl = document.getElementById('news-source-label');
+  statusEl.innerHTML = '<span class="status-dot loading"></span>뉴스 불러오는 중...';
+  document.getElementById('news-list').innerHTML = `<div style="padding:14px 15px">${['','',''].map(() =>
+    `<div class="skeleton" style="width:55%;height:10px;margin-bottom:4px"></div><div class="skeleton" style="height:13px;margin-bottom:3px"></div><div class="skeleton" style="height:13px;width:80%"></div><br>`
+  ).join('')}</div>`;
+
   try {
-    const xmlText = await fetchWithFallback(url);
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(xmlText, 'text/xml');
-    const items = [...xml.querySelectorAll('item')].slice(0, 10);
-    if (!items.length) throw new Error('항목 없음');
-    const parsed = items.map(item => ({
-      title: item.querySelector('title')?.textContent || '',
-      link: item.querySelector('link')?.textContent || item.querySelector('guid')?.textContent || '',
-      pub: item.querySelector('pubDate')?.textContent || '',
-      src: item.querySelector('source')?.textContent || 'Google 뉴스',
-    }));
+    let parsed;
+    if (newsApiKey) {
+      // NewsAPI 실시간 시도
+      try {
+        parsed = await loadFromNewsAPI();
+        labelEl.textContent = '🔴 실시간 뉴스 (NewsAPI)';
+      } catch(e) {
+        // 실패시 RSS 폴백
+        parsed = await loadFromRSS();
+        labelEl.textContent = '네이버 RSS (NewsAPI 오류)';
+      }
+    } else {
+      parsed = await loadFromRSS();
+      labelEl.textContent = '네이버 RSS (5~10분 주기)';
+    }
     newsCache[currentNewsCat] = parsed;
     renderNewsList(parsed);
-    const t = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-    statusEl.innerHTML = `<span class="status-dot"></span>마지막 업데이트 ${t}`;
-  } catch (e) {
+    const t = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    statusEl.innerHTML = `<span class="status-dot"></span>업데이트 ${t} · ${newsApiKey ? '실시간' : '새로고침으로 최신화'}`;
+    // NewsAPI 사용 중이면 3분마다 자동 갱신
+    if (newsApiKey) {
+      clearTimeout(window._newsTimer);
+      window._newsTimer = setTimeout(() => { newsCache = {}; loadNews(true); }, 3 * 60 * 1000);
+    }
+  } catch(e) {
     statusEl.innerHTML = '<span class="status-dot err"></span>뉴스를 불러오지 못했어요';
     document.getElementById('news-list').innerHTML = '<div class="empty"><span class="empty-icon">📡</span>새로고침 버튼을 눌러 다시 시도해주세요</div>';
   }
@@ -744,7 +836,11 @@ async function aiPortfolio() {
 }
 
 // ─── INIT ────────────────────────────────────────────────
-loadNews();
+if (newsApiKey) {
+  document.getElementById('api-toggle-btn').textContent = '✓ 연동됨';
+  document.getElementById('api-toggle-btn').style.color = 'var(--green)';
+}
+loadNews(true);
 renderPort();
 // Auto refresh prices on load
 setTimeout(refreshPrices, 1000);
