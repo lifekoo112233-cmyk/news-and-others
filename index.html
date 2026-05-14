@@ -262,10 +262,35 @@ body {
     <span class="fx-hint"></span>
   </div>
   <div class="port-hero" id="port-hero"></div>
+
+  <!-- Gist 백업 설정 -->
+  <div id="gist-setup-card" style="display:none;background:linear-gradient(135deg,rgba(52,216,153,0.08),rgba(52,216,153,0.03));border:1px solid rgba(52,216,153,0.2);border-radius:var(--r);padding:14px 16px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0" id="gist-hd">
+      <div style="font-size:13px;font-weight:600;color:var(--green)" id="gist-card-title">☁️ GitHub Gist 클라우드 백업</div>
+      <button class="tab" onclick="hideGistSetup()">닫기</button>
+    </div>
+    <div id="gist-setup-body" style="margin-top:12px">
+      <p style="font-size:12px;color:var(--text2);line-height:1.9;margin-bottom:10px">
+        1. <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--green)">GitHub 토큰 발급</a> 클릭<br>
+        2. Note: <b>dashboard</b> 입력<br>
+        3. Expiration: <b>No expiration</b> 선택<br>
+        4. <b>gist</b> 체크박스만 체크<br>
+        5. Generate token → 복사 후 아래 입력
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxx" style="flex:1;font-size:12px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--r2);background:var(--bg3);color:var(--text);outline:none;font-family:inherit" />
+        <button onclick="saveGistToken()" style="font-size:12px;padding:9px 14px;border-radius:var(--r2);border:1px solid var(--green);background:rgba(52,216,153,0.15);color:var(--green);cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap">연결</button>
+      </div>
+      <div id="gist-msg" style="font-size:11px;color:var(--text3)"></div>
+    </div>
+  </div>
   <div class="card">
     <div class="card-hd">
       <span class="card-hd-title">보유 종목</span>
-      <button class="add-btn" onclick="toggleForm()">＋ 추가</button>
+      <div style="display:flex;gap:7px;align-items:center">
+        <button class="add-btn" onclick="showGistSetup()" id="gist-status-btn" title="클라우드 백업">☁️ 백업</button>
+        <button class="add-btn" onclick="toggleForm()">＋ 추가</button>
+      </div>
     </div>
     <div id="form-area" style="display:none">
       <div class="form-wrap">
@@ -394,7 +419,11 @@ let stocks=(()=>{
 if(!stocks.length)stocks=[{name:'삼성전자',ticker:'005930.KS',qty:30,avg:72000,cur:0,usd:false},{name:'NVIDIA',ticker:'NVDA',qty:5,avg:95000,cur:0,usd:true},{name:'카카오',ticker:'035720.KS',qty:20,avg:52000,cur:0,usd:false}];
 let showForm=false,selStock=null,fxRate=parseFloat(localStorage.getItem('fx_rate')||'1380');
 const COLORS=['#7c9dff','#34d899','#c47aff','#ffc84a','#ff6060','#5ce6ff','#ff9f7c'];
-function saveStocks(){localStorage.setItem('stocks_v3',JSON.stringify(stocks));}
+function saveStocks(){
+  localStorage.setItem('stocks_v3',JSON.stringify(stocks));
+  // 클라우드 자동 저장 (토큰 있을 때)
+  if(gistToken) gistSave();
+}
 
 // 환율 조회
 async function fetchFX(){
@@ -514,12 +543,140 @@ async function aiPortfolio(){
   alert('포트폴리오 정보가 클립보드에 복사됐어요!\nClaude 채팅창에 붙여넣기(Ctrl+V)하면 분석해드려요.');
 }
 
+// ── GIST CLOUD BACKUP ──
+let gistToken = localStorage.getItem('gist_token') || '';
+let gistId    = localStorage.getItem('gist_id')    || '';
+
+function showGistSetup() {
+  const card = document.getElementById('gist-setup-card');
+  if (card.style.display === 'none') {
+    card.style.display = 'block';
+    if (gistToken) document.getElementById('gist-token-input').value = gistToken;
+    updateGistStatusBtn();
+  } else {
+    card.style.display = 'none';
+  }
+}
+function hideGistSetup() {
+  document.getElementById('gist-setup-card').style.display = 'none';
+}
+
+function updateGistStatusBtn() {
+  const btn = document.getElementById('gist-status-btn');
+  if (gistToken) {
+    btn.textContent = '☁️ 연동됨';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    document.getElementById('gist-card-title').textContent = '☁️ GitHub Gist 연동됨';
+  } else {
+    btn.textContent = '☁️ 백업';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
+}
+
+async function saveGistToken() {
+  const token = document.getElementById('gist-token-input').value.trim();
+  const msg   = document.getElementById('gist-msg');
+  if (!token) { msg.textContent = '토큰을 입력해주세요.'; return; }
+  msg.style.color = 'var(--text3)';
+  msg.textContent = '연결 확인 중...';
+  try {
+    // 토큰 유효성 확인
+    const r = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!r.ok) throw new Error('토큰이 올바르지 않아요.');
+    const user = await r.json();
+    gistToken = token;
+    localStorage.setItem('gist_token', token);
+    msg.style.color = 'var(--green)';
+    msg.textContent = `✓ ${user.login} 계정 연결됨! 첫 백업 중...`;
+    updateGistStatusBtn();
+    await gistSave();
+    msg.textContent = `✓ ${user.login} 연결 완료 · 종목 변경 시 자동 저장됩니다`;
+    setTimeout(hideGistSetup, 1500);
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = e.message || '연결 실패. 토큰을 확인해주세요.';
+  }
+}
+
+async function gistSave() {
+  if (!gistToken || !stocks.length) return;
+  const body = {
+    description: '내 대시보드 포트폴리오 백업',
+    public: false,
+    files: {
+      'portfolio.json': {
+        content: JSON.stringify({ stocks, saved: new Date().toISOString() }, null, 2)
+      }
+    }
+  };
+  try {
+    let r;
+    if (gistId) {
+      // 기존 Gist 업데이트
+      r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `token ${gistToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      // 새 Gist 생성
+      r = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: `token ${gistToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    }
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    gistId = d.id;
+    localStorage.setItem('gist_id', gistId);
+    // 상태 표시
+    const st = document.getElementById('port-status');
+    const t  = new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+    if (st) st.innerHTML = `<span class="dot dot-on"></span>☁️ 클라우드 저장 완료 ${t} · 5분마다 시세 자동갱신`;
+  } catch { /* 저장 실패는 조용히 넘김 */ }
+}
+
+async function gistLoad() {
+  if (!gistToken || !gistId) return false;
+  try {
+    const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `token ${gistToken}` }
+    });
+    if (!r.ok) return false;
+    const d    = await r.json();
+    const raw  = d.files?.['portfolio.json']?.content;
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const imported = data.stocks || data;
+    if (!Array.isArray(imported) || !imported.length) return false;
+    stocks = imported;
+    saveStocks();
+    return true;
+  } catch { return false; }
+}
+
 // ── INIT ──
 if(newsApiKey){document.getElementById('api-title').textContent='🟢 실시간 뉴스 연동됨';document.getElementById('api-toggle').textContent='✓ 연동됨';document.getElementById('api-toggle').style.color='var(--green)';}
+updateGistStatusBtn();
 renderYT();
 loadNews(true);
-renderPort();
-fetchFX().then(()=>refreshPrices(true).then(startAutoRefresh));
+// Gist에서 최신 데이터 로드 후 렌더
+(async()=>{
+  if(gistToken && gistId){
+    const loaded = await gistLoad();
+    if(loaded){
+      const st=document.getElementById('port-status');
+      if(st) st.innerHTML='<span class="dot dot-on"></span>☁️ 클라우드에서 복원됨';
+    }
+  }
+  renderPort();
+  fetchFX().then(()=>refreshPrices(true).then(startAutoRefresh));
+})();
 </script>
 </body>
 </html>
