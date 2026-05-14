@@ -381,7 +381,16 @@ function filterYT(cat,btn){ytCat=cat;document.querySelectorAll('#yt-tabs .tab').
 function renderYT(){const list=ytCat==='all'?YT:YT.filter(v=>v.cat===ytCat);document.getElementById('yt-list').innerHTML=list.map(v=>`<div class="yt-item" onclick="window.open('${v.url}','_blank')"><div class="yt-thumb" style="background:${v.bg}"><span>${v.e}</span><div class="yt-play"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div><div><div class="yt-name">${v.name}</div><div class="yt-desc">${v.desc}</div></div></div>`).join('');}
 
 // ── PORTFOLIO ──
-let stocks=JSON.parse(localStorage.getItem('stocks_v3')||'[]');
+let stocks=(()=>{
+  // 이전 버전 데이터 자동 복구
+  const v3=localStorage.getItem('stocks_v3');
+  if(v3)return JSON.parse(v3);
+  const v2=localStorage.getItem('stocks_v2');
+  if(v2){const d=JSON.parse(v2);localStorage.setItem('stocks_v3',JSON.stringify(d));return d;}
+  const v1=localStorage.getItem('dashboard_stocks');
+  if(v1){const d=JSON.parse(v1);localStorage.setItem('stocks_v3',JSON.stringify(d));return d;}
+  return [];
+})();
 if(!stocks.length)stocks=[{name:'삼성전자',ticker:'005930.KS',qty:30,avg:72000,cur:0,usd:false},{name:'NVIDIA',ticker:'NVDA',qty:5,avg:95000,cur:0,usd:true},{name:'카카오',ticker:'035720.KS',qty:20,avg:52000,cur:0,usd:false}];
 let showForm=false,selStock=null,fxRate=parseFloat(localStorage.getItem('fx_rate')||'1380');
 const COLORS=['#7c9dff','#34d899','#c47aff','#ffc84a','#ff6060','#5ce6ff','#ff9f7c'];
