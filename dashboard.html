@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>내 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f13;
+  --bg2: #1a1a22;
+  --bg3: #22222e;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #f0f0f5;
+  --text2: #9090a8;
+  --text3: #5a5a72;
+  --accent: #6c8fff;
+  --accent2: #3d5aff;
+  --green: #2ecc8f;
+  --red: #ff5c5c;
+  --amber: #ffb347;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 80px;
+}
+/* NAV */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-btn {
+  padding: 12px 4px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text3); font-size: 10px; font-family: inherit;
+  transition: color .2s;
+}
+.nav-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+.nav-btn.active { color: var(--accent); }
+/* PAGE */
+.page { display: none; padding: 16px 14px 0; }
+.page.active { display: block; }
+/* HEADER */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.page-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.refresh-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text2); transition: all .2s;
+}
+.refresh-btn:active { transform: scale(0.92); }
+.refresh-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+/* CARD */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.card-header {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  letter-spacing: .04em; text-transform: uppercase;
+}
+/* TABS */
+.tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+.tab {
+  font-size: 11px; padding: 4px 10px;
+  border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text3);
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.tab.active {
+  background: var(--accent2); border-color: var(--accent);
+  color: #fff; font-weight: 500;
+}
+/* NEWS */
+.news-item {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .15s;
+}
+.news-item:last-child { border-bottom: none; }
+.news-item:active { background: var(--bg3); }
+.news-cat {
+  font-size: 10px; font-weight: 700; padding: 2px 7px;
+  border-radius: 4px; display: inline-block; margin-bottom: 5px;
+}
+.cat-tech { background: rgba(108,143,255,0.15); color: #8aabff; }
+.cat-market { background: rgba(46,204,143,0.15); color: #2ecc8f; }
+.cat-global { background: rgba(255,179,71,0.15); color: #ffb347; }
+.cat-crypto { background: rgba(180,100,255,0.15); color: #c47aff; }
+.news-title { font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--text); }
+.news-meta { font-size: 10px; color: var(--text3); margin-top: 4px; }
+/* AI BOX */
+.ai-row {
+  display: flex; gap: 7px; padding: 11px 14px 7px;
+}
+.ai-row input {
+  flex: 1; font-size: 12px; padding: 8px 11px;
+  border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  background: var(--bg3); color: var(--text);
+  outline: none; font-family: inherit;
+}
+.ai-row input::placeholder { color: var(--text3); }
+.ai-row button {
+  font-size: 11px; padding: 8px 12px;
+  border-radius: var(--radius-sm); border: 1px solid var(--accent);
+  background: var(--accent2); color: #fff;
+  cursor: pointer; font-family: inherit; font-weight: 500;
+  white-space: nowrap;
+}
+.ai-out {
+  margin: 0 14px 12px;
+  background: var(--bg3); border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  padding: 10px 12px; font-size: 12px; line-height: 1.7; color: var(--text2);
+  display: none;
+}
+/* YOUTUBE */
+.yt-item {
+  display: flex; gap: 11px; padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; align-items: center; transition: background .15s;
+}
+.yt-item:last-child { border-bottom: none; }
+.yt-item:active { background: var(--bg3); }
+.yt-thumb {
+  width: 80px; height: 52px; border-radius: var(--radius-sm);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; position: relative; overflow: hidden;
+}
+.yt-play-icon {
+  position: absolute; width: 26px; height: 26px;
+  background: rgba(0,0,0,0.6); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.yt-play-icon svg { width: 12px; height: 12px; fill: white; margin-left: 2px; }
+.yt-info { flex: 1; min-width: 0; }
+.yt-title {
+  font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.yt-sub { font-size: 10px; color: var(--text3); margin-top: 3px; }
+/* PORTFOLIO */
+.summary-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-bottom: 12px;
+}
+.metric {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 15px;
+}
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; font-weight: 500; }
+.metric-value { font-size: 20px; font-weight: 700; }
+.metric-sub { font-size: 11px; margin-top: 3px; }
+.green { color: var(--green); } .red { color: var(--red); }
+.stock-item {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+}
+.stock-item:last-child { border-bottom: none; }
+.stock-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 8px;
+}
+.sname { font-size: 14px; font-weight: 700; }
+.scode { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.sright { text-align: right; }
+.seval { font-size: 14px; font-weight: 700; }
+.sbadge {
+  font-size: 11px; padding: 2px 7px;
+  border-radius: 5px; display: inline-block; margin-top: 3px; font-weight: 500;
+}
+.bg { background: rgba(46,204,143,0.15); color: var(--green); }
+.br { background: rgba(255,92,92,0.15); color: var(--red); }
+.bn { background: var(--bg3); color: var(--text3); }
+.sdel {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text3); padding: 2px 5px; font-size: 16px; line-height: 1;
+}
+.sdetail { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.dcell {
+  background: var(--bg3); border-radius: 6px; padding: 7px 8px;
+}
+.dlabel { font-size: 9px; color: var(--text3); margin-bottom: 3px; font-weight: 500; }
+.dval { font-size: 11px; font-weight: 700; }
+.cur-editable { cursor: pointer; border-bottom: 1px dashed var(--text3); }
+/* FORM */
+.form-wrap {
+  background: var(--bg3); border-top: 1px solid var(--border);
+  padding: 14px 15px;
+}
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 9px; }
+.frow.full { grid-template-columns: 1fr; }
+.fgroup label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; font-weight: 500; }
+.fgroup input {
+  width: 100%; font-size: 13px; padding: 9px 10px;
+  border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  background: var(--bg2); color: var(--text);
+  outline: none; font-family: inherit;
+}
+.fgroup input:focus { border-color: var(--accent); }
+.faction { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 6px; }
+.btn-cancel {
+  padding: 10px; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); background: transparent;
+  color: var(--text2); cursor: pointer; font-family: inherit; font-size: 13px; width: 100%;
+}
+.btn-ok {
+  padding: 10px; border: 1px solid var(--accent);
+  border-radius: var(--radius-sm); background: var(--accent2);
+  color: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; width: 100%;
+}
+.add-stock-btn {
+  font-size: 12px; padding: 6px 12px;
+  border-radius: 20px; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent);
+  cursor: pointer; font-family: inherit; font-weight: 500;
+  display: flex; align-items: center; gap: 4px;
+}
+/* BAR */
+.bar-section { padding: 10px 15px 14px; }
+.brow { margin-bottom: 9px; }
+.blrow { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.bname { font-size: 11px; color: var(--text2); }
+.bpct { font-size: 11px; font-weight: 700; }
+.bbg { width: 100%; height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.bfill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+/* AI PORT BTN */
+.ai-port-btn {
+  width: 100%; padding: 13px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: rgba(108,143,255,0.08);
+  color: var(--accent); cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  margin-top: 4px; letter-spacing: .02em;
+}
+/* STATUS */
+.status-bar {
+  font-size: 10px; color: var(--text3);
+  text-align: center; padding: 6px 0 2px;
+}
+.status-dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--green);
+  margin-right: 4px; vertical-align: middle;
+}
+.status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+.status-dot.err { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+/* EMPTY */
+.empty { padding: 32px; text-align: center; color: var(--text3); font-size: 13px; }
+.empty-icon { font-size: 32px; display: block; margin-bottom: 10px; }
+/* LOADING SKELETON */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px; height: 14px; margin: 4px 0;
+}
+@keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- NEWS PAGE -->
+<div id="page-news" class="page active">
+  <div class="page-header">
+    <div class="page-title">뉴스</div>
+    <button class="refresh-btn" onclick="loadNews()" title="새로고침">
+      <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">오늘의 뉴스</span>
+      <div class="tabs" id="news-tabs">
+        <button class="tab active" onclick="filterNews('경제',this)">경제</button>
+        <button class="tab" onclick="filterNews('기술',this)">기술</button>
+        <button class="tab" onclick="filterNews('증시',this)">증시</button>
+        <button class="tab" onclick="filterNews('코인',this)">코인</button>
+      </div>
+    </div>
+    <div class="ai-row">
+      <input type="text" id="news-q" placeholder="AI에게 뉴스 분석 요청..." />
+      <button onclick="askNewsAI()">분석 ↗</button>
+    </div>
+    <div class="ai-out" id="ai-out"></div>
+    <div id="news-status" class="status-bar"><span class="status-dot loading"></span>뉴스 불러오는 중...</div>
+    <div id="news-list"></div>
+  </div>
+</div>
+
+<!-- YOUTUBE PAGE -->
+<div id="page-yt" class="page">
+  <div class="page-header">
+    <div class="page-title">유튜브</div>
+    <button class="refresh-btn" onclick="renderYT()" title="새로고침">
+      <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">추천 채널</span>
+      <div class="tabs" id="yt-tabs">
+        <button class="tab active" onclick="filterYT('all',this)">전체</button>
+        <button class="tab" onclick="filterYT('finance',this)">재테크</button>
+        <button class="tab" onclick="filterYT('tech',this)">IT</button>
+        <button class="tab" onclick="filterYT('news',this)">시사</button>
+      </div>
+    </div>
+    <div id="yt-list"></div>
+  </div>
+  <p style="font-size:11px;color:var(--text3);text-align:center;padding:8px 0;">채널을 탭하면 유튜브 앱으로 이동해요</p>
+</div>
+
+<!-- PORTFOLIO PAGE -->
+<div id="page-port" class="page">
+  <div class="page-header">
+    <div class="page-title">포트폴리오</div>
+    <button class="refresh-btn" onclick="refreshPrices()" title="시세 새로고침">
+      <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+  <div class="summary-grid" id="summary"></div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">보유 종목</span>
+      <button class="add-stock-btn" onclick="toggleForm()">＋ 종목 추가</button>
+    </div>
+    <div id="form-area" style="display:none">
+      <div class="form-wrap">
+        <div class="frow">
+          <div class="fgroup"><label>종목명</label><input type="text" id="f-name" placeholder="삼성전자" /></div>
+          <div class="fgroup"><label>티커/코드</label><input type="text" id="f-ticker" placeholder="005930.KS" /></div>
+        </div>
+        <div class="frow">
+          <div class="fgroup"><label>보유 수량 (주)</label><input type="number" id="f-qty" placeholder="10" min="1" /></div>
+          <div class="fgroup"><label>평단가 (원)</label><input type="number" id="f-avg" placeholder="70000" min="1" /></div>
+        </div>
+        <div class="frow full">
+          <div class="fgroup">
+            <label>현재가 (원) — 직접 입력 또는 자동 조회</label>
+            <input type="number" id="f-cur" placeholder="키움 MTS 확인 후 입력" min="1" />
+          </div>
+        </div>
+        <p style="font-size:10px;color:var(--text3);text-align:center;padding:4px 0 2px;">
+          국내주식: 005930.KS · 해외주식: NVDA · 코인은 직접입력
+        </p>
+        <div class="faction">
+          <button class="btn-cancel" onclick="toggleForm()">취소</button>
+          <button class="btn-ok" onclick="addStock()">추가</button>
+        </div>
+      </div>
+    </div>
+    <div id="stock-list"></div>
+  </div>
+  <div class="card" id="alloc-card">
+    <div class="card-header"><span class="card-title">비중</span></div>
+    <div class="bar-section" id="alloc-bars"></div>
+  </div>
+  <button class="ai-port-btn" onclick="aiPortfolio()">🤖 AI 포트폴리오 분석 ↗</button>
+  <div id="port-status" class="status-bar" style="margin-top:8px"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="showPage('news',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+    뉴스
+  </button>
+  <button class="nav-btn" onclick="showPage('yt',this)">
+    <svg viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58a2.78 2.78 0 001.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 001.95-1.96A29 29 0 0023 12a29 29 0 00-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+    유튜브
+  </button>
+  <button class="nav-btn" onclick="showPage('port',this)">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+    포트폴리오
+  </button>
+</nav>
+
+<script>
+// ─── PAGE NAV ───────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── NEWS ────────────────────────────────────────────────
+const NEWS_FEEDS = {
+  '경제': 'https://news.google.com/rss/search?q=한국+경제+금리+주식&hl=ko&gl=KR&ceid=KR:ko',
+  '기술': 'https://news.google.com/rss/search?q=AI+반도체+기술+삼성+네이버&hl=ko&gl=KR&ceid=KR:ko',
+  '증시': 'https://news.google.com/rss/search?q=코스피+코스닥+주가+증시&hl=ko&gl=KR&ceid=KR:ko',
+  '코인': 'https://news.google.com/rss/search?q=비트코인+이더리움+가상화폐+코인&hl=ko&gl=KR&ceid=KR:ko',
+};
+const PROXY = 'https://api.allorigins.win/get?url=';
+let currentNewsCat = '경제';
+let newsCache = {};
+
+function filterNews(cat, btn) {
+  currentNewsCat = cat;
+  document.querySelectorAll('#news-tabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (newsCache[cat]) {
+    renderNewsList(newsCache[cat]);
+  } else {
+    loadNews();
+  }
+}
+
+async function loadNews() {
+  const statusEl = document.getElementById('news-status');
+  statusEl.innerHTML = '<span class="status-dot loading"></span>뉴스 불러오는 중...';
+  document.getElementById('news-list').innerHTML = `<div style="padding:14px 15px">${['','',''].map(() => `<div class="skeleton" style="width:60%;height:10px;margin-bottom:4px"></div><div class="skeleton" style="height:13px;margin-bottom:3px"></div><div class="skeleton" style="height:13px;width:80%"></div><br>`).join('')}</div>`;
+
+  const url = NEWS_FEEDS[currentNewsCat];
+  try {
+    const res = await fetch(PROXY + encodeURIComponent(url));
+    const data = await res.json();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(data.contents, 'text/xml');
+    const items = [...xml.querySelectorAll('item')].slice(0, 10);
+    const parsed = items.map(item => ({
+      title: item.querySelector('title')?.textContent || '',
+      link: item.querySelector('link')?.textContent || '',
+      pub: item.querySelector('pubDate')?.textContent || '',
+      src: item.querySelector('source')?.textContent || 'Google 뉴스',
+    }));
+    newsCache[currentNewsCat] = parsed;
+    renderNewsList(parsed);
+    const t = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+    statusEl.innerHTML = `<span class="status-dot"></span>마지막 업데이트 ${t}`;
+  } catch (e) {
+    statusEl.innerHTML = '<span class="status-dot err"></span>뉴스를 불러오지 못했어요 (네트워크 확인)';
+    document.getElementById('news-list').innerHTML = '<div class="empty"><span class="empty-icon">📡</span>잠시 후 다시 시도해주세요</div>';
+  }
+}
+
+function timeAgo(pubStr) {
+  try {
+    const diff = (Date.now() - new Date(pubStr).getTime()) / 60000;
+    if (diff < 60) return Math.round(diff) + '분 전';
+    if (diff < 1440) return Math.round(diff / 60) + '시간 전';
+    return Math.round(diff / 1440) + '일 전';
+  } catch { return ''; }
+}
+
+const catStyle = { '경제':'cat-market', '기술':'cat-tech', '증시':'cat-market', '코인':'cat-crypto' };
+
+function renderNewsList(items) {
+  if (!items.length) {
+    document.getElementById('news-list').innerHTML = '<div class="empty"><span class="empty-icon">📰</span>뉴스가 없어요</div>';
+    return;
+  }
+  document.getElementById('news-list').innerHTML = items.map(n => `
+    <div class="news-item" onclick="window.open('${n.link}','_blank')">
+      <span class="news-cat ${catStyle[currentNewsCat]||'cat-global'}">${currentNewsCat}</span>
+      <div class="news-title">${n.title.replace(/ - .*$/, '')}</div>
+      <div class="news-meta">${n.src} · ${timeAgo(n.pub)}</div>
+    </div>`).join('');
+}
+
+async function askNewsAI() {
+  const q = document.getElementById('news-q').value.trim() || '오늘 주요 경제 뉴스 트렌드를 3줄로 요약해줘';
+  const box = document.getElementById('ai-out');
+  box.style.display = 'block';
+  box.innerHTML = '<span style="color:var(--text3);font-style:italic">AI 분석 중...</span>';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: '당신은 경제·투자 뉴스 분석 도우미입니다. 한국어로 간결하게 2-3문장으로 핵심만 답변하세요.',
+        messages: [{ role: 'user', content: q }]
+      })
+    });
+    const d = await r.json();
+    box.innerHTML = d.content?.[0]?.text || '응답을 받지 못했습니다.';
+  } catch (e) {
+    box.innerHTML = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
+
+// ─── YOUTUBE ────────────────────────────────────────────
+const YT_DATA = [
+  { cat: 'finance', color: '#1a2a4a', emoji: '📈', title: '삼프로TV — 경제의신과함께', sub: '경제·증시 실시간 분석', url: 'https://www.youtube.com/@3protv' },
+  { cat: 'finance', color: '#1a3a2a', emoji: '💰', title: '슈카월드', sub: '경제·시사 쉽게 풀어보기', url: 'https://www.youtube.com/@shukaworld' },
+  { cat: 'finance', color: '#2a2a1a', emoji: '🏠', title: '부읽남TV', sub: '부동산·재테크 정보', url: 'https://www.youtube.com/@booreadnam' },
+  { cat: 'finance', color: '#1a1a3a', emoji: '📊', title: '돈의심리', sub: '투자 심리·ETF 전략', url: 'https://www.youtube.com/@moneypsychology' },
+  { cat: 'tech', color: '#2a1a3a', emoji: '🤖', title: '안될공학', sub: 'AI·공학 트렌드 분석', url: 'https://www.youtube.com/@unrealscience' },
+  { cat: 'tech', color: '#1a2a3a', emoji: '💻', title: '잇섭', sub: 'IT 기기 리뷰·최신 트렌드', url: 'https://www.youtube.com/@itsub' },
+  { cat: 'tech', color: '#2a1a1a', emoji: '📱', title: '리뷰엔터', sub: '스마트폰·가전 리뷰', url: 'https://www.youtube.com/@reviewenter' },
+  { cat: 'news', color: '#1a2a2a', emoji: '📺', title: 'KBS 뉴스', sub: '국내외 주요 뉴스', url: 'https://www.youtube.com/@kbsnews' },
+  { cat: 'news', color: '#2a1a2a', emoji: '🗞️', title: 'JTBC 뉴스', sub: '시사·정치·사회 뉴스', url: 'https://www.youtube.com/@jtbcnews' },
+  { cat: 'news', color: '#1a3a3a', emoji: '🌐', title: 'SBS 뉴스', sub: '실시간 뉴스·이슈', url: 'https://www.youtube.com/@sbsnews8' },
+];
+let ytCat = 'all';
+
+function filterYT(cat, btn) {
+  ytCat = cat;
+  document.querySelectorAll('#yt-tabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderYT();
+}
+function renderYT() {
+  const list = ytCat === 'all' ? YT_DATA : YT_DATA.filter(v => v.cat === ytCat);
+  document.getElementById('yt-list').innerHTML = list.map(v => `
+    <div class="yt-item" onclick="window.open('${v.url}','_blank')">
+      <div class="yt-thumb" style="background:${v.color}">
+        <span>${v.emoji}</span>
+        <div class="yt-play-icon">
+          <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+        </div>
+      </div>
+      <div class="yt-info">
+        <div class="yt-title">${v.title}</div>
+        <div class="yt-sub">${v.sub}</div>
+      </div>
+    </div>`).join('');
+}
+renderYT();
+
+// ─── PORTFOLIO ───────────────────────────────────────────
+let stocks = JSON.parse(localStorage.getItem('dashboard_stocks') || '[]');
+if (!stocks.length) {
+  stocks = [
+    { name: '삼성전자', ticker: '005930.KS', qty: 30, avg: 72000, cur: 0 },
+    { name: 'NVIDIA', ticker: 'NVDA', qty: 5, avg: 95000, cur: 0 },
+    { name: '카카오', ticker: '035720.KS', qty: 20, avg: 52000, cur: 0 },
+  ];
+}
+let showForm = false;
+const barColors = ['#6c8fff','#2ecc8f','#c47aff','#ffb347','#ff5c5c','#5ce6ff'];
+
+function saveStocks() { localStorage.setItem('dashboard_stocks', JSON.stringify(stocks)); }
+
+function toggleForm() {
+  showForm = !showForm;
+  document.getElementById('form-area').style.display = showForm ? 'block' : 'none';
+  if (showForm) document.getElementById('f-name').focus();
+}
+
+function addStock() {
+  const name = document.getElementById('f-name').value.trim();
+  const ticker = document.getElementById('f-ticker').value.trim();
+  const qty = parseInt(document.getElementById('f-qty').value);
+  const avg = parseInt(document.getElementById('f-avg').value);
+  const cur = parseInt(document.getElementById('f-cur').value) || 0;
+  if (!name || !qty || !avg) { alert('종목명, 수량, 평단가는 필수입니다.'); return; }
+  stocks.push({ name, ticker: ticker || '', qty, avg, cur });
+  ['f-name', 'f-ticker', 'f-qty', 'f-avg', 'f-cur'].forEach(id => document.getElementById(id).value = '');
+  saveStocks();
+  toggleForm();
+  renderPort();
+  if (ticker) fetchSinglePrice(stocks.length - 1);
+}
+
+function deleteStock(i) {
+  if (confirm(stocks[i].name + ' 삭제할까요?')) {
+    stocks.splice(i, 1);
+    saveStocks();
+    renderPort();
+  }
+}
+
+function editPrice(i) {
+  const p = prompt(stocks[i].name + ' 현재가 입력 (원):');
+  if (p && !isNaN(parseInt(p))) {
+    stocks[i].cur = parseInt(p);
+    saveStocks();
+    renderPort();
+  }
+}
+
+function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+function fmtP(n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
+
+// Yahoo Finance via proxy
+async function fetchSinglePrice(idx) {
+  const s = stocks[idx];
+  if (!s.ticker) return;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.ticker)}?interval=1d&range=1d`;
+    const res = await fetch(PROXY + encodeURIComponent(url));
+    const data = await res.json();
+    const parsed = JSON.parse(data.contents);
+    const price = parsed?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (price) {
+      // Yahoo returns USD for US stocks — convert roughly for display
+      // Korean stocks (KS/KQ) return KRW
+      const isKorean = s.ticker.endsWith('.KS') || s.ticker.endsWith('.KQ');
+      stocks[idx].cur = isKorean ? Math.round(price) : Math.round(price * 1380);
+      saveStocks();
+      renderPort();
+    }
+  } catch (e) { /* silently skip */ }
+}
+
+async function refreshPrices() {
+  const statusEl = document.getElementById('port-status');
+  statusEl.innerHTML = '<span class="status-dot loading"></span>시세 업데이트 중...';
+  const promises = stocks.map((s, i) => s.ticker ? fetchSinglePrice(i) : Promise.resolve());
+  await Promise.all(promises);
+  const t = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  statusEl.innerHTML = `<span class="status-dot"></span>시세 업데이트 완료 · ${t} · 현재가 탭하면 수동 수정 가능`;
+}
+
+function renderPort() {
+  const totalEval = stocks.reduce((a, s) => a + s.qty * (s.cur || s.avg), 0);
+  const totalCost = stocks.reduce((a, s) => a + s.qty * s.avg, 0);
+  const totalPnl = totalEval - totalCost;
+  const totalPct = totalCost ? (totalPnl / totalCost * 100) : 0;
+  const up = totalPnl >= 0;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">총 평가액</div>
+      <div class="metric-value">₩${fmt(totalEval)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">총 손익</div>
+      <div class="metric-value ${up ? 'green' : 'red'}">${up ? '+' : ''}₩${fmt(totalPnl)}</div>
+      <div class="metric-sub ${up ? 'green' : 'red'}">${fmtP(totalPct)}</div>
+    </div>`;
+
+  if (!stocks.length) {
+    document.getElementById('stock-list').innerHTML = '<div class="empty"><span class="empty-icon">📊</span>종목을 추가해보세요</div>';
+    document.getElementById('alloc-card').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('stock-list').innerHTML = stocks.map((s, i) => {
+    const curPrice = s.cur || s.avg;
+    const ev = s.qty * curPrice;
+    const pnl = (curPrice - s.avg) * s.qty;
+    const pct = (curPrice - s.avg) / s.avg * 100;
+    const isUp = pnl >= 0;
+    const noPrice = !s.cur;
+    return `<div class="stock-item">
+      <div class="stock-top">
+        <div>
+          <div class="sname">${s.name}</div>
+          <div class="scode">${s.ticker || '직접입력'} · ${s.qty}주</div>
+        </div>
+        <div class="sright">
+          <div class="seval">₩${fmt(ev)}</div>
+          <span class="sbadge ${noPrice ? 'bn' : (isUp ? 'bg' : 'br')}">${noPrice ? '시세없음' : fmtP(pct)}</span>
+        </div>
+        <button class="sdel" onclick="deleteStock(${i})">×</button>
+      </div>
+      <div class="sdetail">
+        <div class="dcell"><div class="dlabel">평단가</div><div class="dval">₩${fmt(s.avg)}</div></div>
+        <div class="dcell"><div class="dlabel">현재가</div><div class="dval cur-editable" onclick="editPrice(${i})">₩${s.cur ? fmt(s.cur) : '탭하여입력'}</div></div>
+        <div class="dcell"><div class="dlabel">손익</div><div class="dval ${noPrice ? '' : (isUp ? 'green' : 'red')}">${noPrice ? '-' : (isUp ? '+' : '') + '₩' + fmt(pnl)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('alloc-card').style.display = 'block';
+  const maxEv = Math.max(...stocks.map(s => s.qty * (s.cur || s.avg)));
+  document.getElementById('alloc-bars').innerHTML = stocks.map((s, i) => {
+    const ev = s.qty * (s.cur || s.avg);
+    const alloc = totalEval ? (ev / totalEval * 100) : 0;
+    const w = maxEv ? (ev / maxEv * 100) : 0;
+    return `<div class="brow">
+      <div class="blrow"><span class="bname">${s.name}</span><span class="bpct">${alloc.toFixed(1)}%</span></div>
+      <div class="bbg"><div class="bfill" style="width:${w.toFixed(1)}%;background:${barColors[i % barColors.length]}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+async function aiPortfolio() {
+  const text = stocks.map(s => {
+    const cur = s.cur || s.avg;
+    const pnl = (cur - s.avg) * s.qty;
+    const pct = ((cur - s.avg) / s.avg * 100).toFixed(2);
+    return `${s.name} ${s.qty}주 평단₩${fmt(s.avg)} 현재₩${fmt(cur)} 손익₩${fmt(pnl)}(${pct}%)`;
+  }).join(', ');
+  const q = `내 포트폴리오를 분석해줘. 보유 종목: ${text}. 리스크, 비중, 개선점을 간결하게 알려줘.`;
+  // Open in new Claude chat
+  const encoded = encodeURIComponent(q);
+  alert('AI 분석을 시작합니다.\n\n아래 내용이 클립보드에 복사됩니다:\n' + text.slice(0, 80) + '...');
+  navigator.clipboard?.writeText(q).catch(() => {});
+}
+
+// ─── INIT ────────────────────────────────────────────────
+loadNews();
+renderPort();
+// Auto refresh prices on load
+setTimeout(refreshPrices, 1000);
+</script>
+</body>
+</html>
