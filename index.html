@@ -727,20 +727,59 @@ const STOCK_DB = [
   { name: 'KODEX 레버리지', ticker: '122630.KS' },
 ];
 
+let searchTimer = null;
+
 function searchStock() {
-  const q = document.getElementById('f-search').value.trim().toLowerCase();
+  const q = document.getElementById('f-search').value.trim();
   const box = document.getElementById('search-results');
   if (!q) { box.style.display = 'none'; return; }
-  const matches = STOCK_DB.filter(s =>
-    s.name.toLowerCase().includes(q) || s.ticker.toLowerCase().includes(q)
-  ).slice(0, 8);
-  if (!matches.length) { box.style.display = 'none'; return; }
+
+  // 1. 로컬 DB 먼저 즉시 표시
+  const localMatches = STOCK_DB.filter(s =>
+    s.name.toLowerCase().includes(q.toLowerCase()) || s.ticker.toLowerCase().includes(q.toLowerCase())
+  ).slice(0, 5);
+
   box.style.display = 'block';
-  box.innerHTML = matches.map(s => `
-    <div onclick="selectStock('${s.name}','${s.ticker}')" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:12px" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-      <span style="font-weight:500">${s.name}</span>
-      <span style="color:var(--text3);font-size:11px">${s.ticker}</span>
-    </div>`).join('');
+  box.innerHTML = localMatches.map(s => stockRow(s.name, s.ticker, '로컬')).join('') +
+    `<div id="yahoo-results" style="border-top:${localMatches.length?'1px solid var(--border)':'none'}">
+      <div style="padding:8px 12px;font-size:11px;color:var(--text3)">Yahoo Finance 검색 중...</div>
+    </div>`;
+
+  // 2. Yahoo Finance 실시간 검색 (300ms 디바운스)
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => fetchYahooSearch(q), 300);
+}
+
+async function fetchYahooSearch(q) {
+  const yahooEl = document.getElementById('yahoo-results');
+  if (!yahooEl) return;
+  try {
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=en-US&region=US&quotesCount=8&enableFuzzyQuery=true&enableNavLinks=false`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    const quotes = (data.quotes || []).filter(q => q.symbol && q.shortname || q.longname).slice(0, 6);
+    if (!quotes.length) {
+      yahooEl.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--text3)">Yahoo 검색 결과 없음</div>';
+      return;
+    }
+    yahooEl.innerHTML = quotes.map(q => {
+      const name = q.shortname || q.longname || q.symbol;
+      const ticker = q.symbol;
+      const exchange = q.exchDisp || q.exchange || '';
+      return stockRow(name, ticker, exchange);
+    }).join('');
+  } catch(e) {
+    if (yahooEl) yahooEl.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--text3)">Yahoo 검색 실패 — 로컬 결과만 표시</div>';
+  }
+}
+
+function stockRow(name, ticker, badge) {
+  return `<div onclick="selectStock('${name.replace(/'/g,"\'")}','${ticker}')" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+    <span style="font-size:12px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+    <span style="font-size:10px;color:var(--accent);background:rgba(108,143,255,0.12);padding:2px 6px;border-radius:4px;white-space:nowrap">${ticker}</span>
+    <span style="font-size:10px;color:var(--text3);white-space:nowrap">${badge}</span>
+  </div>`;
 }
 
 async function selectStock(name, ticker) {
