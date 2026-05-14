@@ -202,12 +202,25 @@ body {
       <button class="tab" id="api-toggle" onclick="toggleSetup()">설정 ▾</button>
     </div>
     <div class="setup-body" id="setup-body">
-      <p>1. <a href="https://newsapi.org/register" target="_blank">newsapi.org</a> 무료 가입 (1분)<br>2. API Key 복사 후 입력<br>3. 저장하면 실시간으로 전환됩니다</p>
-      <div class="setup-row">
-        <input type="text" id="api-key-input" placeholder="API Key 붙여넣기..." />
+      <p style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:10px">1. <a href="https://newsapi.org/register" target="_blank">newsapi.org</a> 무료 가입 (1분)<br>2. API Key 복사 후 입력<br>3. 저장하면 실시간으로 전환됩니다</p>
+      <div class="setup-row" style="margin-bottom:10px">
+        <input type="text" id="api-key-input" placeholder="NewsAPI Key 붙여넣기..." />
         <button onclick="saveApiKey()">저장</button>
       </div>
-      <div class="setup-msg" id="api-msg"></div>
+      <div class="setup-msg" id="api-msg" style="margin-bottom:12px"></div>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <p style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:8px">
+          <b style="color:var(--accent)">🤖 AI 요약 설정 (Claude API)</b><br>
+          1. <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> 가입<br>
+          2. API Keys → Create Key → 복사<br>
+          3. 아래 입력하면 뉴스·유튜브 AI 요약 활성화
+        </p>
+        <div class="setup-row">
+          <input type="password" id="claude-key-input" placeholder="sk-ant-..." />
+          <button onclick="saveClaudeKey()">저장</button>
+        </div>
+        <div class="setup-msg" id="claude-msg"></div>
+      </div>
     </div>
   </div>
 
@@ -441,8 +454,8 @@ function timeAgo(s){
     if(diff < 60)   return Math.round(diff) + '분 전';
     if(diff < 1440) return Math.round(diff/60) + '시간 전';
     if(diff < 10080)return Math.round(diff/1440) + '일 전';
-    // 7일 이상은 날짜로 표시
-    return d.toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+    // 7일 이상은 연도+날짜로 표시
+    return d.toLocaleDateString('ko-KR',{year:'numeric',month:'short',day:'numeric'});
   }catch{return '';}
 }
 
@@ -451,9 +464,21 @@ const PROXIES=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://a
 async function proxyFetch(url,ms=7000){for(const mk of PROXIES){try{const r=await fetch(mk(url),{signal:AbortSignal.timeout(ms)});if(!r.ok)continue;const t=await r.text();try{const j=JSON.parse(t);if(j.contents)return j.contents;}catch{}return t;}catch{continue;}}throw new Error('proxy fail');}
 
 // ── INTERESTS ──
+let claudeApiKey  = localStorage.getItem('claude_api_key') || '';
 let newsInterests = JSON.parse(localStorage.getItem('news_interests') || '["2차전지","AI반도체"]');
 let ytInterests   = JSON.parse(localStorage.getItem('yt_interests')   || '["주식투자","테슬라"]');
 let ytApiKey      = localStorage.getItem('yt_api_key') || '';
+
+function saveClaudeKey() {
+  const k   = document.getElementById('claude-key-input').value.trim();
+  const msg = document.getElementById('claude-msg');
+  if(!k){ msg.textContent='키를 입력해주세요.'; return; }
+  claudeApiKey = k;
+  localStorage.setItem('claude_api_key', k);
+  msg.style.color = 'var(--green)';
+  msg.textContent = '✓ Claude API 키 저장됐어요! AI 요약이 활성화됩니다.';
+  setTimeout(()=>{ toggleSetup(); }, 1000);
+}
 
 function saveInterests(type) {
   if(type==='news') localStorage.setItem('news_interests', JSON.stringify(newsInterests));
@@ -559,11 +584,15 @@ async function loadInterestNews(kw) {
 
 async function askInterestAI(kw) {
   const aiBox = document.getElementById('ai-result');
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:'경제·투자 뉴스 분석 도우미. 한국어로 3문장 이내 핵심만.',messages:[{role:'user',content:`"${kw}" 관련 최근 주요 뉴스 트렌드와 투자자 관점에서 주목할 점을 요약해줘`}]})});
-    const d = await r.json();
-    aiBox.innerHTML = `<b style="color:var(--accent);font-size:11px">🤖 AI 요약 · ${kw}</b><br><br>${d.content?.[0]?.text||'응답 없음'}`;
-  } catch { aiBox.innerHTML = 'AI 요약 실패'; }
+  if(!claudeApiKey){ aiBox.innerHTML=`<span style="color:var(--text3);font-size:11px">AI 요약을 보려면 Claude API 키를 설정해주세요</span>`; return; }
+  const result = await callClaude(
+    '경제·투자 뉴스 분석 도우미. 한국어로 3문장 이내 핵심만.',
+    `"${kw}" 관련 최근 주요 뉴스 트렌드와 투자자 관점에서 주목할 점을 요약해줘`,
+    400
+  );
+  aiBox.innerHTML = result
+    ? `<b style="color:var(--accent);font-size:11px">🤖 AI 요약 · ${kw}</b><br><br>${result}`
+    : 'AI 요약 실패';
 }
 
 // ── YOUTUBE API ──
@@ -634,19 +663,19 @@ async function ytAISummary(vid, title, channel, btn) {
   btn.textContent = '⏳ 요약 중...';
   btn.disabled = true;
   box.innerHTML = '<span style="color:var(--text3);font-style:italic">영상 내용 분석 중...</span>';
-  try{
-    const r = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:350,
-        system:'유튜브 영상 분석 도우미. 한국어로 핵심만 3문장. 투자·경제 관련이면 투자자 관점 포함.',
-        messages:[{role:'user',content:`유튜브 영상 제목: "${title}" / 채널: ${channel}\n\n이 영상의 예상 내용과 핵심 포인트를 요약해줘. 실제 내용을 못 봤지만 제목과 채널 정보로 추측해서 알려줘.`}]
-      })
-    });
-    const d = await r.json();
-    box.innerHTML = `<b style="color:var(--accent);font-size:10px">🤖 AI 예상 요약</b><br><br>${d.content?.[0]?.text||'요약 실패'}<br><br><span style="font-size:10px;color:var(--text3)">※ 영상 제목 기반 추측 요약이에요</span>`;
+  if(!claudeApiKey){
+    box.innerHTML='<span style="color:var(--text3);font-size:11px">AI 요약을 보려면 Claude API 키를 설정해주세요<br>뉴스 탭 → 설정 → AI 요약 설정</span>';
+    btn.textContent='🤖 AI 요약'; btn.disabled=false; return;
+  }
+  const result = await callClaude(
+    '유튜브 영상 분석 도우미. 한국어로 핵심만 3문장. 투자·경제 관련이면 투자자 관점 포함.',
+    `유튜브 영상 제목: "${title}" / 채널: ${channel}\n\n이 영상의 예상 내용과 핵심 포인트를 요약해줘. 제목과 채널 정보로 추측해서 알려줘.`,
+    350
+  );
+  if(result){
+    box.innerHTML = `<b style="color:var(--accent);font-size:10px">🤖 AI 예상 요약</b><br><br>${result}<br><br><span style="font-size:10px;color:var(--text3)">※ 영상 제목 기반 추측 요약이에요</span>`;
     btn.textContent = '✕ 닫기';
-  }catch{
+  } else {
     box.innerHTML = '요약 실패. 다시 시도해주세요.';
     btn.textContent = '🤖 AI 요약';
   }
@@ -692,55 +721,62 @@ async function loadNews(force=false){
 }
 async function rssLoad(){const x=await proxyFetch(NAVER_RSS[newsCat]);const doc=new DOMParser().parseFromString(x,'text/xml');const items=[...doc.querySelectorAll('item')].slice(0,10);if(!items.length)throw 0;return items.map(el=>({title:(el.querySelector('title')?.textContent||'').replace(/<!\[CDATA\[|\]\]>/g,'').trim(),link:el.querySelector('link')?.textContent||el.querySelector('guid')?.textContent||'',pub:el.querySelector('pubDate')?.textContent||'',src:el.querySelector('source')?.textContent||'뉴스'}));}
 function renderNews(items){if(!items.length){document.getElementById('news-list').innerHTML='<div class="empty"><span class="empty-icon">📰</span>뉴스가 없어요</div>';return;}document.getElementById('news-list').innerHTML=items.map(n=>`<div class="news-item" onclick="window.open('${n.link}','_blank')"><span class="news-tag ${TAG_CLS[newsCat]||'tag-eco'}">${newsCat}</span><div class="news-title">${n.title}</div><div class="news-meta">${n.src} · ${timeAgo(n.pub)}</div></div>`).join('');}
+async function callClaude(system, userMsg, maxTokens=350) {
+  if(!claudeApiKey) return null;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: 'user', content: userMsg }]
+      })
+    });
+    const d = await r.json();
+    if(d.error) { console.error('Claude API:', d.error.message); return null; }
+    return d.content?.[0]?.text || null;
+  } catch(e) { console.error('Claude fetch error:', e); return null; }
+}
+
 async function autoSummarizeNews(items){
   if(!items || !items.length) return;
   const aiBox = document.getElementById('ai-result');
   aiBox.style.display = 'block';
   aiBox.innerHTML = `<span style="color:var(--text3);font-style:italic">🤖 "${newsCat}" 뉴스 자동 요약 중...</span>`;
+  if(!claudeApiKey){ aiBox.style.display='none'; return; }
   const headlines = items.slice(0,5).map((n,i)=>`${i+1}. ${n.title}`).join('\n');
-  try{
-    const r = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:350,
-        system:'경제·투자 뉴스 분석 도우미. 한국어로 핵심만 3문장 이내. 투자자 관점 포함.',
-        messages:[{role:'user',content:`다음 뉴스 헤드라인들을 요약하고 투자자 관점에서 주목할 점을 알려줘:\n${headlines}`}]
-      })
-    });
-    const d = await r.json();
-    aiBox.innerHTML = `<b style="color:var(--accent);font-size:11px;letter-spacing:.04em">🤖 AI 자동 요약 · ${newsCat}</b><br><br>${d.content?.[0]?.text||'요약 실패'}`;
-  }catch{ aiBox.style.display='none'; }
+  const result = await callClaude(
+    '경제·투자 뉴스 분석 도우미. 한국어로 핵심만 3문장 이내. 투자자 관점 포함.',
+    `다음 뉴스 헤드라인들을 요약하고 투자자 관점에서 주목할 점을 알려줘:\n${headlines}`,
+    350
+  );
+  if(result) {
+    aiBox.innerHTML = `<b style="color:var(--accent);font-size:11px;letter-spacing:.04em">🤖 AI 자동 요약 · ${newsCat}</b><br><br>${result}`;
+  } else {
+    aiBox.style.display='none';
+  }
 }
 
-async function askNewsAI(){const q=document.getElementById('news-q').value.trim()||'오늘 주요 경제 뉴스 트렌드를 3줄 요약';const box=document.getElementById('ai-result');box.style.display='block';box.innerHTML='<span style="color:var(--text3);font-style:italic">AI 분석 중...</span>';try{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:'경제·투자 뉴스 분석 도우미. 한국어로 2-3문장 핵심만.',messages:[{role:'user',content:q}]})});const d=await r.json();box.innerHTML=d.content?.[0]?.text||'응답 없음';}catch{box.innerHTML='오류가 발생했습니다.';}}
-
-// ── YOUTUBE ──
-const YT=[{cat:'finance',bg:'#131f38',e:'📈',name:'삼프로TV',desc:'경제·증시 실시간 분석',url:'https://www.youtube.com/@3protv'},{cat:'finance',bg:'#1a2e1a',e:'💰',name:'슈카월드',desc:'경제·시사 쉽게 풀어보기',url:'https://www.youtube.com/@shukaworld'},{cat:'finance',bg:'#2a220e',e:'🏠',name:'부읽남TV',desc:'부동산·재테크 정보',url:'https://www.youtube.com/@booreadnam'},{cat:'finance',bg:'#1a1a30',e:'📊',name:'돈의심리',desc:'투자심리·ETF 전략',url:'https://www.youtube.com/@moneypsychology'},{cat:'tech',bg:'#221a30',e:'🤖',name:'안될공학',desc:'AI·공학 트렌드',url:'https://www.youtube.com/@unrealscience'},{cat:'tech',bg:'#12222a',e:'💻',name:'잇섭',desc:'IT 기기 리뷰·최신 트렌드',url:'https://www.youtube.com/@itsub'},{cat:'tech',bg:'#2a1212',e:'📱',name:'리뷰엔터',desc:'스마트폰·가전 리뷰',url:'https://www.youtube.com/@reviewenter'},{cat:'news',bg:'#12221a',e:'📺',name:'KBS 뉴스',desc:'국내외 주요 뉴스',url:'https://www.youtube.com/@kbsnews'},{cat:'news',bg:'#221222',e:'🗞️',name:'JTBC 뉴스',desc:'시사·정치·사회 뉴스',url:'https://www.youtube.com/@jtbcnews'},{cat:'news',bg:'#1a1a12',e:'🌐',name:'SBS 뉴스',desc:'실시간 뉴스·이슈',url:'https://www.youtube.com/@sbsnews8'}];
-let ytCat='all';
-function filterYT(cat,btn){ytCat=cat;document.querySelectorAll('#yt-tabs .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderYT();}
-function renderYT(){const list=ytCat==='all'?YT:YT.filter(v=>v.cat===ytCat);document.getElementById('yt-list').innerHTML=list.map(v=>`<div class="yt-item" onclick="window.open('${v.url}','_blank')"><div class="yt-thumb" style="background:${v.bg}"><span>${v.e}</span><div class="yt-play"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div><div><div class="yt-name">${v.name}</div><div class="yt-desc">${v.desc}</div></div></div>`).join('');}
-
-// ── PORTFOLIO ──
-let stocks=(()=>{
-  // 이전 버전 데이터 자동 복구
-  const v3=localStorage.getItem('stocks_v3');
-  if(v3)return JSON.parse(v3);
-  const v2=localStorage.getItem('stocks_v2');
-  if(v2){const d=JSON.parse(v2);localStorage.setItem('stocks_v3',JSON.stringify(d));return d;}
-  const v1=localStorage.getItem('dashboard_stocks');
-  if(v1){const d=JSON.parse(v1);localStorage.setItem('stocks_v3',JSON.stringify(d));return d;}
-  return [];
-})();
-if(!stocks.length)stocks=[{name:'삼성전자',ticker:'005930.KS',qty:30,avg:72000,cur:0,usd:false},{name:'NVIDIA',ticker:'NVDA',qty:5,avg:95000,cur:0,usd:true},{name:'카카오',ticker:'035720.KS',qty:20,avg:52000,cur:0,usd:false}];
-let showForm=false,selStock=null,fxRate=parseFloat(localStorage.getItem('fx_rate')||'1380');
-const COLORS=['#7c9dff','#34d899','#c47aff','#ffc84a','#ff6060','#5ce6ff','#ff9f7c'];
-function saveStocks(){
-  localStorage.setItem('stocks_v3',JSON.stringify(stocks));
-  // 클라우드 자동 저장 (토큰 있을 때)
-  if(gistToken) gistSave();
+async function askNewsAI(){
+  const q   = document.getElementById('news-q').value.trim() || '오늘 주요 경제 뉴스 트렌드를 3줄 요약';
+  const box = document.getElementById('ai-result');
+  box.style.display = 'block';
+  box.innerHTML = '<span style="color:var(--text3);font-style:italic">AI 분석 중...</span>';
+  if(!claudeApiKey){
+    box.innerHTML='<span style="color:var(--red)">Claude API 키를 설정해주세요.<br>뉴스 탭 → 실시간 뉴스 연동 → 설정 → AI 요약 설정</span>';
+    return;
+  }
+  const result = await callClaude('경제·투자 뉴스 분석 도우미. 한국어로 2-3문장 핵심만.', q, 400);
+  box.innerHTML = result || '응답을 받지 못했습니다.';
 }
 
-// 환율 조회
 async function fetchFX(){
   const tickers=['USDKRW=X','KRW=X'];
   for(const t of tickers){
@@ -868,6 +904,7 @@ function showGistSetup() {
     card.style.display = 'block';
     if (gistToken) document.getElementById('gist-token-input').value = gistToken;
     updateGistStatusBtn();
+if(claudeApiKey){ console.log('Claude API 키 로드됨'); }
   } else {
     card.style.display = 'none';
   }
