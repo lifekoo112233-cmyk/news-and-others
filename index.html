@@ -382,9 +382,15 @@ body {
     </div>
     <div id="form-area" style="display:none">
       <div class="form-wrap">
-        <div class="frow">
-          <div class="fgroup"><label>종목명</label><input type="text" id="f-name" placeholder="삼성전자" /></div>
-          <div class="fgroup"><label>티커/코드</label><input type="text" id="f-ticker" placeholder="005930.KS" /></div>
+        <div class="frow full" style="position:relative">
+          <div class="fgroup">
+            <label>종목명 검색</label>
+            <input type="text" id="f-search" placeholder="삼성전자, NVDA, 비트코인..." oninput="searchStock()" autocomplete="off" />
+          </div>
+          <div id="search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-sm);z-index:200;max-height:180px;overflow-y:auto;margin-top:2px"></div>
+        </div>
+        <div id="selected-stock" style="display:none;background:var(--bg3);border-radius:var(--radius-sm);padding:8px 11px;margin-bottom:2px;font-size:12px;color:var(--green)">
+          ✓ <span id="selected-label"></span>
         </div>
         <div class="frow">
           <div class="fgroup"><label>보유 수량 (주)</label><input type="number" id="f-qty" placeholder="10" min="1" /></div>
@@ -392,13 +398,10 @@ body {
         </div>
         <div class="frow full">
           <div class="fgroup">
-            <label>현재가 (원) — 직접 입력 또는 자동 조회</label>
-            <input type="number" id="f-cur" placeholder="키움 MTS 확인 후 입력" min="1" />
+            <label>현재가 <span id="f-cur-label" style="color:var(--text3);font-weight:400">(종목 선택 시 자동조회)</span></label>
+            <input type="number" id="f-cur" placeholder="자동조회 또는 직접 입력" min="1" />
           </div>
         </div>
-        <p style="font-size:10px;color:var(--text3);text-align:center;padding:4px 0 2px;">
-          국내주식: 005930.KS · 해외주식: NVDA · 코인은 직접입력
-        </p>
         <div class="faction">
           <button class="btn-cancel" onclick="toggleForm()">취소</button>
           <button class="btn-ok" onclick="addStock()">추가</button>
@@ -682,29 +685,112 @@ if (!stocks.length) {
   ];
 }
 let showForm = false;
+let selectedStock = null; // { name, ticker }
 const barColors = ['#6c8fff','#2ecc8f','#c47aff','#ffb347','#ff5c5c','#5ce6ff'];
+
+// 자주 쓰는 종목 DB (검색 자동완성)
+const STOCK_DB = [
+  { name: '삼성전자', ticker: '005930.KS' },
+  { name: 'SK하이닉스', ticker: '000660.KS' },
+  { name: 'LG에너지솔루션', ticker: '373220.KS' },
+  { name: '삼성바이오로직스', ticker: '207940.KS' },
+  { name: '현대차', ticker: '005380.KS' },
+  { name: '기아', ticker: '000270.KS' },
+  { name: '셀트리온', ticker: '068270.KS' },
+  { name: 'POSCO홀딩스', ticker: '005490.KS' },
+  { name: 'LG화학', ticker: '051910.KS' },
+  { name: '카카오', ticker: '035720.KS' },
+  { name: '네이버', ticker: '035420.KS' },
+  { name: '삼성SDI', ticker: '006400.KS' },
+  { name: 'KB금융', ticker: '105560.KS' },
+  { name: '신한지주', ticker: '055550.KS' },
+  { name: '하나금융지주', ticker: '086790.KS' },
+  { name: '크래프톤', ticker: '259960.KS' },
+  { name: '카카오뱅크', ticker: '323410.KS' },
+  { name: 'KT&G', ticker: '033780.KS' },
+  { name: '두산에너빌리티', ticker: '034020.KS' },
+  { name: '에코프로비엠', ticker: '247540.KQ' },
+  { name: 'NVIDIA', ticker: 'NVDA' },
+  { name: 'Apple', ticker: 'AAPL' },
+  { name: 'Microsoft', ticker: 'MSFT' },
+  { name: 'Tesla', ticker: 'TSLA' },
+  { name: 'Amazon', ticker: 'AMZN' },
+  { name: 'Google', ticker: 'GOOGL' },
+  { name: 'Meta', ticker: 'META' },
+  { name: 'AMD', ticker: 'AMD' },
+  { name: 'Taiwan Semi (TSMC)', ticker: 'TSM' },
+  { name: 'Palantir', ticker: 'PLTR' },
+  { name: 'S&P500 ETF (SPY)', ticker: 'SPY' },
+  { name: 'NASDAQ ETF (QQQ)', ticker: 'QQQ' },
+  { name: 'KODEX 200', ticker: '069500.KS' },
+  { name: 'TIGER 미국S&P500', ticker: '360750.KS' },
+  { name: 'KODEX 레버리지', ticker: '122630.KS' },
+];
+
+function searchStock() {
+  const q = document.getElementById('f-search').value.trim().toLowerCase();
+  const box = document.getElementById('search-results');
+  if (!q) { box.style.display = 'none'; return; }
+  const matches = STOCK_DB.filter(s =>
+    s.name.toLowerCase().includes(q) || s.ticker.toLowerCase().includes(q)
+  ).slice(0, 8);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = matches.map(s => `
+    <div onclick="selectStock('${s.name}','${s.ticker}')" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:12px" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-weight:500">${s.name}</span>
+      <span style="color:var(--text3);font-size:11px">${s.ticker}</span>
+    </div>`).join('');
+}
+
+async function selectStock(name, ticker) {
+  selectedStock = { name, ticker };
+  document.getElementById('f-search').value = name;
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('selected-stock').style.display = 'block';
+  document.getElementById('selected-label').textContent = `${name} (${ticker}) 선택됨 — 현재가 조회 중...`;
+  document.getElementById('f-cur-label').textContent = '(자동조회 중...)';
+  // 현재가 미리 조회
+  try {
+    const price = await fetchPrice(ticker);
+    if (price) {
+      document.getElementById('f-cur').value = price;
+      document.getElementById('selected-label').textContent = `${name} (${ticker}) · 현재가 ₩${price.toLocaleString()}`;
+      document.getElementById('f-cur-label').textContent = '(자동조회 완료 ✓)';
+    }
+  } catch(e) {
+    document.getElementById('f-cur-label').textContent = '(직접 입력해주세요)';
+  }
+}
 
 function saveStocks() { localStorage.setItem('dashboard_stocks', JSON.stringify(stocks)); }
 
 function toggleForm() {
   showForm = !showForm;
   document.getElementById('form-area').style.display = showForm ? 'block' : 'none';
-  if (showForm) document.getElementById('f-name').focus();
+  if (showForm) {
+    selectedStock = null;
+    document.getElementById('f-search').value = '';
+    document.getElementById('f-qty').value = '';
+    document.getElementById('f-avg').value = '';
+    document.getElementById('f-cur').value = '';
+    document.getElementById('selected-stock').style.display = 'none';
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('f-search').focus();
+  }
 }
 
 function addStock() {
-  const name = document.getElementById('f-name').value.trim();
-  const ticker = document.getElementById('f-ticker').value.trim();
+  if (!selectedStock) { alert('종목을 검색해서 선택해주세요.'); return; }
   const qty = parseInt(document.getElementById('f-qty').value);
   const avg = parseInt(document.getElementById('f-avg').value);
   const cur = parseInt(document.getElementById('f-cur').value) || 0;
-  if (!name || !qty || !avg) { alert('종목명, 수량, 평단가는 필수입니다.'); return; }
-  stocks.push({ name, ticker: ticker || '', qty, avg, cur });
-  ['f-name', 'f-ticker', 'f-qty', 'f-avg', 'f-cur'].forEach(id => document.getElementById(id).value = '');
+  if (!qty || !avg) { alert('수량과 평단가를 입력해주세요.'); return; }
+  stocks.push({ name: selectedStock.name, ticker: selectedStock.ticker, qty, avg, cur });
   saveStocks();
   toggleForm();
   renderPort();
-  if (ticker) fetchSinglePrice(stocks.length - 1);
+  if (!cur) fetchSinglePrice(stocks.length - 1);
 }
 
 function deleteStock(i) {
@@ -727,34 +813,56 @@ function editPrice(i) {
 function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
 function fmtP(n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
 
-// Yahoo Finance via proxy
+// Yahoo Finance 현재가 조회
+async function fetchPrice(ticker) {
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`)}`,
+  ];
+  for (const url of proxies) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+      const text = await res.text();
+      let data;
+      try { const j = JSON.parse(text); data = JSON.parse(j.contents || text); }
+      catch(e) { data = JSON.parse(text); }
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (!price) continue;
+      const isKorean = ticker.endsWith('.KS') || ticker.endsWith('.KQ');
+      return isKorean ? Math.round(price) : Math.round(price * 1380);
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
 async function fetchSinglePrice(idx) {
   const s = stocks[idx];
   if (!s.ticker) return;
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.ticker)}?interval=1d&range=1d`;
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    const data = await res.json();
-    const parsed = JSON.parse(data.contents);
-    const price = parsed?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    if (price) {
-      // Yahoo returns USD for US stocks — convert roughly for display
-      // Korean stocks (KS/KQ) return KRW
-      const isKorean = s.ticker.endsWith('.KS') || s.ticker.endsWith('.KQ');
-      stocks[idx].cur = isKorean ? Math.round(price) : Math.round(price * 1380);
-      saveStocks();
-      renderPort();
-    }
-  } catch (e) { /* silently skip */ }
+  const price = await fetchPrice(s.ticker);
+  if (price) {
+    stocks[idx].cur = price;
+    saveStocks();
+    renderPort();
+  }
 }
 
 async function refreshPrices() {
   const statusEl = document.getElementById('port-status');
   statusEl.innerHTML = '<span class="status-dot loading"></span>시세 업데이트 중...';
-  const promises = stocks.map((s, i) => s.ticker ? fetchSinglePrice(i) : Promise.resolve());
-  await Promise.all(promises);
+  await Promise.all(stocks.map((s, i) => s.ticker ? fetchSinglePrice(i) : Promise.resolve()));
   const t = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  statusEl.innerHTML = `<span class="status-dot"></span>시세 업데이트 완료 · ${t} · 현재가 탭하면 수동 수정 가능`;
+  statusEl.innerHTML = `<span class="status-dot"></span>업데이트 ${t} · 5분마다 자동갱신 · 현재가 탭하면 수동수정`;
+}
+
+// ★ 5분마다 자동 갱신
+function startAutoRefresh() {
+  clearInterval(window._priceTimer);
+  window._priceTimer = setInterval(async () => {
+    await Promise.all(stocks.map((s, i) => s.ticker ? fetchSinglePrice(i) : Promise.resolve()));
+    const t = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const statusEl = document.getElementById('port-status');
+    if (statusEl) statusEl.innerHTML = `<span class="status-dot"></span>자동갱신 ${t} · 5분마다 업데이트`;
+  }, 5 * 60 * 1000);
 }
 
 function renderPort() {
@@ -842,8 +950,11 @@ if (newsApiKey) {
 }
 loadNews(true);
 renderPort();
-// Auto refresh prices on load
-setTimeout(refreshPrices, 1000);
+// 시세 로드 + 5분 자동갱신 시작
+setTimeout(async () => {
+  await refreshPrices();
+  startAutoRefresh();
+}, 1200);
 </script>
 </body>
 </html>
